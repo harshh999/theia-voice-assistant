@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soothing Pomodoro Clock</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tone.js CDN for sound generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.5s ease-in-out;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f4f8; /* Light background */
+        }
+        .container {
+            max-width: 500px;
+            width: 90%;
+            background-color: #ffffff;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            border-radius: 2rem;
+            padding: 2rem;
+            text-align: center;
+            transition: background-color 0.5s ease-in-out;
+        }
+        .time-display {
+            font-size: 5rem;
+            font-weight: 700;
+            color: #334155;
+            margin-bottom: 2rem;
+            letter-spacing: 0.1em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .mode-buttons button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            margin: 0 0.5rem 1.5rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        .mode-buttons button.active {
+            background-color: #6366f1; /* Indigo 500 */
+            color: white;
+            box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+        }
+        .mode-buttons button:not(.active) {
+            background-color: #e2e8f0; /* Slate 200 */
+            color: #475569; /* Slate 700 */
+        }
+        .control-buttons button {
+            padding: 1rem 2.5rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 1.25rem;
+            margin: 0 0.75rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            background: linear-gradient(145deg, #6366f1, #4f46e5); /* Indigo gradient */
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .control-buttons button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+        }
+        .control-buttons button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .control-buttons button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background: #94a3b8; /* Slate 400 */
+            box-shadow: none;
+        }
+        .sound-selection {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .sound-selection label {
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 0.5rem;
+        }
+        .sound-selection select {
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid #cbd5e1; /* Slate 300 */
+            background-color: #f8fafc; /* Slate 50 */
+            color: #334155;
+            font-size: 1rem;
+            width: 100%;
+            max-width: 250px;
+            appearance: none; /* Remove default arrow */
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd' /%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1.5em 1.5em;
+            cursor: pointer;
+        }
+        .sound-selection select:focus {
+            outline: none;
+            border-color: #6366f1; /* Indigo 500 */
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 1000;
+            display: none; /* Hidden by default */
+            text-align: center;
+        }
+        .message-box button {
+            background-color: #6366f1;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div class="container">
+        <div class="mode-buttons flex justify-center">
+            <button id="work-mode-btn" class="active">Work</button>
+            <button id="short-break-mode-btn">Short Break</button>
+            <button id="long-break-mode-btn">Long Break</button>
+        </div>
+
+        <div id="time" class="time-display">25:00</div>
+
+        <div class="control-buttons flex justify-center">
+            <button id="start-btn">Start</button>
+            <button id="pause-btn" disabled>Pause</button>
+            <button id="reset-btn" disabled>Reset</button>
+            <button id="skip-btn" disabled>Skip</button>
+        </div>
+
+        <div class="sound-selection">
+            <label for="sound-select">Choose End Sound:</label>
+            <select id="sound-select">
+                <option value="chime">Chime</option>
+                <option value="bell">Bell</option>
+                <option value="soft_pad">Soft Pad</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Message Box for alerts -->
+    <div id="message-box" class="message-box">
+        <p id="message-text"></p>
+        <button id="message-box-ok-btn">OK</button>
+    </div>
+
+    <script>
+        // Global variables for Firebase (will be populated by the Canvas environment)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Message Box functions (replacing alert/confirm)
+        function showMessageBox(message, onOk = null) {
+            const msgBox = document.getElementById('message-box');
+            const msgText = document.getElementById('message-text');
+            const okBtn = document.getElementById('message-box-ok-btn');
+
+            msgText.textContent = message;
+            msgBox.style.display = 'block';
+
+            okBtn.onclick = () => {
+                msgBox.style.display = 'none';
+                if (onOk) onOk();
+            };
+        }
+
+        // --- Pomodoro Clock Logic ---
+        const timeDisplay = document.getElementById('time');
+        const workModeBtn = document.getElementById('work-mode-btn');
+        const shortBreakModeBtn = document.getElementById('short-break-mode-btn');
+        const longBreakModeBtn = document.getElementById('long-break-mode-btn');
+        const startBtn = document.getElementById('start-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const skipBtn = document.getElementById('skip-btn');
+        const soundSelect = document.getElementById('sound-select');
+        const container = document.querySelector('.container');
+        const body = document.body;
+
+        let timer;
+        let isRunning = false;
+        let totalSeconds;
+        let currentMode = 'work'; // 'work', 'shortBreak', 'longBreak'
+        let pomodoroCount = 0; // To track cycles for long break
+
+        const modes = {
+            work: 25 * 60,
+            shortBreak: 5 * 60,
+            longBreak: 15 * 60
+        };
+
+        // Initialize Tone.js Synths for sounds
+        let chimeSynth, bellSynth, softPadSynth;
+
+        window.onload = async function() {
+            // Initialize Tone.js context
+            await Tone.start();
+            console.log("AudioContext is running");
+
+            // Chime sound: Simple sine wave with a short decay
+            chimeSynth = new Tone.Synth({
+                oscillator: { type: "sine" },
+                envelope: {
+                    attack: 0.005,
+                    decay: 0.2,
+                    sustain: 0.05,
+                    release: 0.5
+                }
+            }).toDestination();
+
+            // Bell sound: FM synth for a metallic tone
+            bellSynth = new Tone.FMSynth({
+                harmonicity: 3.01,
+                modulationIndex: 14,
+                oscillator: { type: "sine" },
+                envelope: {
+                    attack: 0.01,
+                    decay: 0.2,
+                    sustain: 0.01,
+                    release: 1.2
+                },
+                modulation: { type: "sine" },
+                modulationEnvelope: {
+                    attack: 0.005,
+                    decay: 0.2,
+                    sustain: 0.0,
+                    release: 0.05
+                }
+            }).toDestination();
+
+            // Soft Pad sound: PolySynth with a warm, sustained tone
+            softPadSynth = new Tone.PolySynth(Tone.AMSynth, {
+                oscillator: { type: "triangle" },
+                envelope: {
+                    attack: 2,
+                    decay: 1,
+                    sustain: 0.5,
+                    release: 5
+                },
+                harmonicity: 1.5
+            }).toDestination();
+
+            // Set initial mode and time
+            setMode('work');
+        };
+
+        function playSound(soundType) {
+            if (soundType === 'chime') {
+                chimeSynth.triggerAttackRelease("C5", "8n");
+            } else if (soundType === 'bell') {
+                bellSynth.triggerAttackRelease("G4", "4n");
+            } else if (soundType === 'soft_pad') {
+                softPadSynth.triggerAttackRelease(["C4", "E4", "G4"], "4n");
+            }
+        }
+
+        function updateDisplay() {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            timeDisplay.textContent = `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            totalSeconds = modes[mode];
+            updateDisplay();
+            updateModeButtons();
+            updateBackgroundAndContainer();
+            disableControlButtons(false, true, true, true); // Enable start, disable others
+            if (isRunning) { // If timer was running, pause it and reset
+                pauseTimer();
+                resetTimer();
+            }
+        }
+
+        function updateModeButtons() {
+            workModeBtn.classList.remove('active');
+            shortBreakModeBtn.classList.remove('active');
+            longBreakModeBtn.classList.remove('active');
+
+            if (currentMode === 'work') {
+                workModeBtn.classList.add('active');
+            } else if (currentMode === 'shortBreak') {
+                shortBreakModeBtn.classList.add('active');
+            } else if (currentMode === 'longBreak') {
+                longBreakModeBtn.classList.add('active');
+            }
+        }
+
+        function updateBackgroundAndContainer() {
+            body.classList.remove('bg-gray-100', 'bg-blue-100', 'bg-green-100');
+            container.classList.remove('bg-white', 'bg-blue-50', 'bg-green-50');
+
+            if (currentMode === 'work') {
+                body.classList.add('bg-gray-100');
+                container.classList.add('bg-white');
+            } else if (currentMode === 'shortBreak') {
+                body.classList.add('bg-blue-100');
+                container.classList.add('bg-blue-50');
+            } else if (currentMode === 'longBreak') {
+                body.classList.add('bg-green-100');
+                container.classList.add('bg-green-50');
+            }
+        }
+
+        function disableControlButtons(start, pause, reset, skip) {
+            startBtn.disabled = start;
+            pauseBtn.disabled = pause;
+            resetBtn.disabled = reset;
+            skipBtn.disabled = skip;
+        }
+
+        function startTimer() {
+            if (isRunning) return;
+            isRunning = true;
+            disableControlButtons(true, false, false, false); // Disable start, enable others
+
+            timer = setInterval(() => {
+                totalSeconds--;
+                updateDisplay();
+
+                if (totalSeconds <= 0) {
+                    clearInterval(timer);
+                    isRunning = false;
+                    playSound(soundSelect.value); // Play selected sound
+
+                    if (currentMode === 'work') {
+                        pomodoroCount++;
+                        showMessageBox(`Work session finished! You've completed ${pomodoroCount} Pomodoros.`, () => {
+                            if (pomodoroCount % 4 === 0) {
+                                setMode('longBreak');
+                            } else {
+                                setMode('shortBreak');
+                            }
+                            disableControlButtons(false, true, true, true); // Enable start, disable others
+                        });
+                    } else {
+                        showMessageBox(`Break finished! Time to work again.`, () => {
+                            setMode('work');
+                            disableControlButtons(false, true, true, true); // Enable start, disable others
+                        });
+                    }
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            clearInterval(timer);
+            isRunning = false;
+            disableControlButtons(false, true, false, false); // Enable start, disable pause
+        }
+
+        function resetTimer() {
+            clearInterval(timer);
+            isRunning = false;
+            setMode(currentMode); // Reset to current mode's initial time
+            disableControlButtons(false, true, true, true); // Enable start, disable others
+        }
+
+        function skipTimer() {
+            clearInterval(timer);
+            isRunning = false;
+            playSound(soundSelect.value); // Play selected sound
+
+            if (currentMode === 'work') {
+                pomodoroCount++;
+                showMessageBox(`Work session skipped! You've completed ${pomodoroCount} Pomodoros.`, () => {
+                    if (pomodoroCount % 4 === 0) {
+                        setMode('longBreak');
+                    } else {
+                        setMode('shortBreak');
+                    }
+                    disableControlButtons(false, true, true, true);
+                });
+            } else {
+                showMessageBox(`Break skipped! Time to work again.`, () => {
+                    setMode('work');
+                    disableControlButtons(false, true, true, true);
+                });
+            }
+        }
+
+        // Event Listeners
+        startBtn.addEventListener('click', startTimer);
+        pauseBtn.addEventListener('click', pauseTimer);
+        resetBtn.addEventListener('click', resetTimer);
+        skipBtn.addEventListener('click', skipTimer);
+
+        workModeBtn.addEventListener('click', () => setMode('work'));
+        shortBreakModeBtn.addEventListener('click', () => setMode('shortBreak'));
+        longBreakModeBtn.addEventListener('click', () => setMode('longBreak'));
+
+        // Initial setup
+        setMode('work');
+    </script>
+</body>
+</html>
